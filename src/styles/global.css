@@ -1,0 +1,415 @@
+/*
+ * Global styles. Plain CSS with custom properties; every animation is wrapped
+ * in a `prefers-reduced-motion: no-preference` guard, so motion turns off
+ * cleanly for users who disable it.
+ */
+
+:root {
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-text: #1a1d21;
+  --color-text-soft: #5b6470;
+  --color-accent: #4f6bf6;
+  --color-accent-soft: #e6ecfd;
+  --color-danger: #d33b3b;
+  --color-danger-soft: #fdeaea;
+  --color-ok: #1c9d5f;
+  --color-border: #e3e6ea;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgb(16 24 40 / 0.08);
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+.app {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app__header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* ---- Local privacy badge ------------------------------------------------ */
+
+.local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-ok);
+  background: color-mix(in srgb, var(--color-ok) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-ok) 30%, transparent);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+}
+
+.local-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+/* ---- Control panel ------------------------------------------------------ */
+
+.control {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.control__options {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 12rem;
+}
+
+.record-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-surface);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.25rem;
+  cursor: pointer;
+}
+
+.record-button:hover {
+  filter: brightness(1.08);
+}
+
+.record-button__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-surface);
+}
+
+.record-button--listening {
+  background: var(--color-danger);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .record-button--listening .record-button__dot {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+/* Segmented toggles (source / model) */
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.segmented__option {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--color-text-soft);
+}
+
+.segmented__option--active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.segmented__option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.language-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-soft);
+}
+
+.language-select {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  background: var(--color-surface);
+  font-size: 0.85rem;
+}
+
+/* ---- Visualizer ---------------------------------------------------------- */
+
+.visualizer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 34px;
+}
+
+.visualizer__bar {
+  width: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  transition: height 120ms ease-out;
+}
+
+.visualizer--active .visualizer__bar {
+  background: var(--color-accent);
+}
+
+/* ---- Model download progress ---------------------------------------------- */
+
+.model-progress {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.model-progress__row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 14rem) 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+}
+
+.model-progress__file {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-progress__meter {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-bg);
+  overflow: hidden;
+  display: block;
+}
+
+.model-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-accent);
+  transition: width 200ms ease-out;
+}
+
+/* ---- Transcript ------------------------------------------------------------ */
+
+.transcript {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  min-height: 12rem;
+}
+
+.transcript__toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.transcript__toolbar-spacer {
+  flex: 1;
+}
+
+.tool {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.transcript__empty {
+  color: var(--color-text-soft);
+  font-size: 0.9rem;
+}
+
+.transcript__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.transcript__line {
+  width: 100%;
+  border: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  font: inherit;
+  color: var(--color-text);
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.transcript__line:focus {
+  outline: 2px solid var(--color-accent-soft);
+  background: var(--color-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .transcript__line--newest {
+    animation: settle 800ms ease-out;
+  }
+}
+
+@keyframes settle {
+  from {
+    background: var(--color-accent-soft);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+.transcript__live {
+  position: relative;
+  color: var(--color-text-soft);
+  font-style: italic;
+  padding: 0.25rem 0.5rem;
+  line-height: 1.5;
+}
+
+/* Merged "select all" view: read-only, ready for a plain Ctrl+C. */
+.transcript__merged {
+  width: 100%;
+  min-height: 9rem;
+  resize: vertical;
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent-soft);
+  border-radius: 10px;
+  font: inherit;
+  color: var(--color-text);
+  padding: 0.75rem;
+  line-height: 1.6;
+}
+
+.transcript__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  background: var(--color-accent);
+  vertical-align: text-bottom;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .transcript__caret {
+    animation: blink 1s steps(2, start) infinite;
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* ---- Error banner ------------------------------------------------------------ */
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: var(--radius);
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+}
+
+.error-banner__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+}
