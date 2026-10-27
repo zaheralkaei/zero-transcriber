@@ -1,4 +1,4 @@
-# Transcriper
+# Zero Transcriber
 
 Real-time speech transcription that runs **entirely in your browser**. No backend, no API keys:
 audio is captured from your microphone (or a shared tab), transcribed locally by a Whisper model
@@ -20,7 +20,10 @@ model weights and JS bundle from public CDNs (cached in your browser afterwards)
   line (auto-detect language or pick one of 30+ languages).
 - **Two audio sources** — microphone, or a browser tab / screen with media playing (a call without
   joining it, a video, a lecture). Tab capture is Chrome/Edge; mic works everywhere.
-- **Two quality levels** — `base` (fast, default) and `small` (more accurate, opt-in).
+- **Two quality levels** — `small` (default: noticeably better quality) and `base` (lighter,
+  lower quality, opt-in). Weights download **sequentially** with **one aggregated progress bar**
+  ("Loading model…"), and are cached in the browser after the first run — every visit afterwards
+  loads instantly from cache.
 - **Editing toolbox** — per-line editing, undo/redo (`Ctrl+Z` / `Ctrl+Shift+Z` also work inline),
   copy, select-all (merged view), download `.txt`, clear.
 - **Accessible & calm** — ARIA labels/roles, `aria-live` partials, all animation behind
@@ -30,8 +33,8 @@ model weights and JS bundle from public CDNs (cached in your browser afterwards)
 
 | Model  | WebGPU | WASM  |
 | ------ | ------ | ----- |
+| small (default) | ~410 MB | ~250 MB |
 | base   | ~206 MB | ~77 MB |
-| small  | ~410 MB | ~250 MB |
 
 ## Development
 

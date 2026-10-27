@@ -1,6 +1,6 @@
 {
-  "name": "transcriper",
-  "description": "Real-time speech transcription, 100% in the browser — nothing recorded, nothing sent",
+  "name": "zero-transcriber",
+  "description": "Real-time speech transcription, 100% in the browser â€” nothing recorded, nothing sent",
   "private": true,
   "version": "0.1.0",
   "type": "module",

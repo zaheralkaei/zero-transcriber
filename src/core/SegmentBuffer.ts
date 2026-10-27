@@ -1,22 +1,30 @@
 /**
  * Turns a continuous stream of PCM blocks into speech segments using the VAD.
- * A small pre-roll is kept so segments never clip the start of a word, and
- * segments are capped at 15 s (Whisper's encoder window is 30 s — leaving
- * headroom, with a 480 000-sample absolute cap mirroring the reference workers).
+ * A small pre-roll guards the start of a word. Segments close on a real pause,
+ * and during continuous speech a segment is flushed every ~4 s — preferring an
+ * energy dip between words as the cut point (never a mid-word cut while a dip
+ * is nearby), with a short hard cut as the last resort so the model never
+ * falls behind live speech.
  */
 
-import { initialVadState, stepVad, frameRms, type VadState } from './vad';
+import { MIN_RMS_THRESHOLD, initialVadState, stepVad, frameRms, type VadState } from './vad';
 
 export const SAMPLE_RATE = 16_000;
 /** 512 samples = 32 ms analysis hop; PCM blocks arrive in multiples of this. */
 export const HOP_SIZE = 512;
 /** 0.4 s kept before onset — enough to not clip the attack of the first word. */
 export const PRE_ROLL_SAMPLES = 6400;
-/** Segments shorter than this are discarded (Whisper hallucinates on blips). */
+/** Fresh segments (with pre-roll) shorter than this are discarded — blips. */
 export const MIN_SEGMENT_SAMPLES = 12_800; // 0.8 s
-/** Longest segment before a forced flush; leaves headroom inside the 30 s window. */
-export const MAX_SEGMENT_SAMPLES = 240_000; // 15 s
-/** Absolute cap for any buffer handed to the model (MAX_SAMPLES in the reference workers). */
+/** Continuations (cut mid-utterance) only need real speech, not a full blip guard. */
+export const MIN_CONTINUATION_SAMPLES = HOP_SIZE * 2;
+/** Cadence for continuous speech: cut at ~4 s, at the newest energy dip. */
+export const TARGET_SEGMENT_SAMPLES = 64_000; // 4 s
+/** Extra patience for a dip past the target before the hard cut. */
+export const FLUSH_GRACE_SAMPLES = 12_000; // 0.75 s
+/** A dip is a frame well below the segment's peak (floor guards quiet speech). */
+export const DIP_FACTOR = 0.35;
+/** Absolute cap for any buffer handed to the model (30 s window head-room). */
 export const MAX_TOTAL_SAMPLES = 480_000;
 
 export interface Segment {
@@ -36,6 +44,12 @@ export interface SegmentBufferState {
   current: Float32Array[];
   /** Total audio samples in `current`, including pre-roll (drives the 15 s cap). */
   currentSamples: number;
+  /** Speech samples in the current segment, EXCLUDING pre-roll (drives the ~4 s cadence). */
+  speechSamples: number;
+  /** True while the current segment began with pre-roll (a fresh onset). */
+  preRollIncluded: boolean;
+  /** Loudest frame RMS in the current segment (drives the dip threshold). */
+  peakRms: number;
   /** Running position in the stream (for segment timestamps). */
   totalSamples: number;
   /** True while VAD reports speech, across block boundaries. */
@@ -49,6 +63,9 @@ export function createSegmentBufferState(): SegmentBufferState {
     preRollHead: 0,
     current: [],
     currentSamples: 0,
+    speechSamples: 0,
+    preRollIncluded: false,
+    peakRms: 0,
     totalSamples: 0,
     speaking: false,
   };
@@ -69,14 +86,18 @@ export function processBlock(
 
   // Walk the block in hop-sized frames: one VAD decision per 32 ms.
   for (const frame of iterateFrames(block, HOP_SIZE)) {
-    const { state: vad, onset, offset } = stepVad(st.vad, frameRms(frame));
+    const rms = frameRms(frame);
+    const { state: vad, onset, offset } = stepVad(st.vad, rms);
     st.vad = vad;
     samplesProcessed += frame.length;
 
     if (onset) {
-      // Start with 0.4 s of pre-roll so the onset itself is never clipped.
+      // Fresh segment: pre-roll so the attack of the first word is never clipped.
       st.current = [st.preRoll.slice(), frame];
       st.currentSamples = PRE_ROLL_SAMPLES + frame.length;
+      st.speechSamples = frame.length;
+      st.preRollIncluded = true;
+      st.peakRms = rms;
       st.speaking = true;
       continue;
     }
@@ -84,19 +105,33 @@ export function processBlock(
     if (st.speaking) {
       st.current.push(frame);
       st.currentSamples += frame.length;
+      st.speechSamples += frame.length;
+      st.peakRms = Math.max(st.peakRms, rms);
 
       if (offset) {
-        // ~0.7 s of quiet now: close the segment. The 0.8 s minimum applies to the
-        // speech portion only — pre-roll (0.4 s) and the trailing quiet frames
-        // (st.vad.under == OFFSET_FRAMES exactly) are subtracted so short blips,
-        // padded with silence, are still discarded rather than sent to Whisper.
-        const speechSamples = st.currentSamples - PRE_ROLL_SAMPLES - st.vad.under * HOP_SIZE;
+        // ~0.7 s of quiet closes the segment. The speech amount measured here
+        // excludes the trailing quiet frames; fresh segments also exclude the
+        // pre-roll. Fresh blips below the 0.8 s guard are discarded;
+        // continuations (no pre-roll) keep any real speech so a word cut at
+        // the old boundary is never lost.
+        const speech = st.speechSamples - st.vad.under * HOP_SIZE;
         const segment = takeSegment(st, samplesProcessed);
-        if (segment && speechSamples >= MIN_SEGMENT_SAMPLES) pending.push(segment);
-      } else if (st.currentSamples >= MAX_SEGMENT_SAMPLES) {
-        // 15 s cap mid-speech: flush what we have; the tail continues in a new segment.
+        const min = st.preRollIncluded ? MIN_SEGMENT_SAMPLES : MIN_CONTINUATION_SAMPLES;
+        if (segment && speech >= min) pending.push(segment);
+        if (segment) markContinuationEnded(st);
+      } else if (st.speechSamples >= TARGET_SEGMENT_SAMPLES + FLUSH_GRACE_SAMPLES) {
+        // Continuous speech past target + grace with no dip anywhere: hard cut.
         const segment = takeSegment(st, samplesProcessed);
         if (segment) pending.push(segment);
+        markContinuationEnded(st);
+      } else if (
+        st.speechSamples >= TARGET_SEGMENT_SAMPLES &&
+        rms < Math.max(MIN_RMS_THRESHOLD, DIP_FACTOR * st.peakRms)
+      ) {
+        // Preferred cut: a dip between words, right at/past the 4 s target.
+        const segment = takeSegment(st, samplesProcessed);
+        if (segment) pending.push(segment);
+        markContinuationEnded(st);
       }
     }
     st.speaking = st.vad.speaking;
@@ -108,6 +143,13 @@ export function processBlock(
   st.totalSamples = Math.min(samplesProcessed, MAX_TOTAL_SAMPLES);
 
   return { state: st, segments: pending };
+}
+
+/** After a mid-speech cut, the tail continues as a fresh (pre-roll-less) segment. */
+function markContinuationEnded(st: SegmentBufferState): void {
+  st.speechSamples = 0;
+  st.preRollIncluded = false; // keep any speech that arrives before the next onset
+  st.peakRms = 0;
 }
 
 /** Flattens and clears the chunk list; `null` when nothing is being recorded. */

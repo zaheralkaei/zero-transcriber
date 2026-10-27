@@ -8,6 +8,7 @@
 import { AUTO_LANGUAGE } from '../core/languages';
 import { DTYPE_BY_DEVICE, MODEL_SPECS } from '../core/modelCatalog';
 import type { AsrTask, Device, ModelKey } from '../core/protocol';
+import { prefetchWeights } from './prefetch';
 
 /** Raw progress event from the library's progress_callback. */
 export interface PipelineProgressEvent {
@@ -57,6 +58,20 @@ export async function createPipeline(
   const { pipeline, TextStreamer } = await import('@huggingface/transformers');
   const spec = MODEL_SPECS[config.modelKey];
   const dtype = DTYPE_BY_DEVICE[config.device][config.modelKey];
+
+  // Download the weights one at a time into the library's browser cache first
+  // (single aggregated bar, calm network); the pipeline load itself is then an
+  // instant cache hit. Failures fall back to the library's parallel downloader.
+  await prefetchWeights(spec.repo, dtype, {
+    onFileProgress: ({ file, loaded, total }) =>
+      hooks.onProgress({
+        status: 'progress',
+        file, // same key transformers.js later reports → its cache-hit events replace these
+        progress: total > 0 ? (loaded / total) * 100 : 0,
+        loaded,
+        total,
+      }),
+  });
 
   const asr = await pipeline('automatic-speech-recognition', spec.repo, {
     device: config.device,

@@ -78,14 +78,31 @@ describe('Visualizer', () => {
 });
 
 describe('ModelProgress', () => {
-  it('renders per-file progress with percentage and MB of MB', () => {
+  it(' aggregates all files into ONE row with a loading message', () => {
     render(
       <ModelProgress
-        files={[{ file: 'a/../encoder_model.onnx', progress: 50, loaded: 5_000_000, total: 10_000_000 }]}
+        files={[
+          { file: 'onnx/encoder_model.onnx', progress: 100, loaded: 10_000_000, total: 10_000_000 },
+          { file: 'onnx/decoder_model_merged_q4.onnx', progress: 25, loaded: 5_000_000, total: 20_000_000 },
+        ]}
       />,
     );
-    expect(screen.getByText(/50% · 5 MB \/ 10 MB/)).toBeInTheDocument();
+    expect(screen.getByText('Loading model…')).toBeInTheDocument();
+    expect(document.querySelectorAll('.model-progress__row')).toHaveLength(1);
+    expect(screen.getByText('50% · 14 MB / 29 MB')).toBeInTheDocument();
     expect(document.querySelector('.model-progress__fill')).toHaveStyle({ width: '50%' });
+  });
+
+  it('takes the higher of duplicate reports for the same file, never sums them', () => {
+    render(
+      <ModelProgress
+        files={[
+          { file: 'onnx/encoder_model.onnx', progress: 100, loaded: 10_000_000, total: 10_000_000 },
+          { file: 'encoder_model.onnx', progress: 50, loaded: 5_000_000, total: 10_000_000 },
+        ]}
+      />,
+    );
+    expect(screen.getByText('100% · 10 MB / 10 MB')).toBeInTheDocument();
   });
 
   it('renders nothing when there is no progress data', () => {

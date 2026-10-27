@@ -21,7 +21,9 @@ import { ErrorBanner } from './components/ErrorBanner';
 import type { ModelKey } from './core/protocol';
 
 export default function App() {
-  const [modelKey, setModelKey] = useState<ModelKey>('base');
+  // small is the default: noticeably better quality; the toggle drops to base
+  // for users who prefer the lighter download.
+  const [modelKey, setModelKey] = useState<ModelKey>('small');
   const [language, setLanguage] = useState('auto');
   const [source, setSource] = useState<'mic' | 'tab'>('mic');
   const [rms, setRms] = useState(0);
@@ -84,19 +86,21 @@ export default function App() {
   );
 
   const statusText =
-    transcriber.status === 'loading'
-      ? 'loading model…'
-      : capture.active
-        ? source === 'tab'
-          ? 'listening to tab'
-          : 'listening'
-        : undefined;
+    capture.active
+      ? source === 'tab'
+        ? 'listening to tab'
+        : 'listening'
+      : transcriber.status === 'loading'
+        ? 'loading model…'
+        : transcriber.status === 'ready'
+          ? 'model cached ✓ — instant next time'
+          : undefined;
   const tabCaptureSupported = supportsTabCapture();
 
   return (
     <main className="app">
       <header className="app__header">
-        <h1>Transcriper</h1>
+        <h1>Zero Transcriber</h1>
         <LocalBadge statusText={statusText} />
       </header>
 

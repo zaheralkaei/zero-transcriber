@@ -235,18 +235,33 @@ button {
   color: var(--color-text-soft);
 }
 
-.model-progress__file {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .model-progress__meter {
   height: 6px;
   border-radius: 3px;
   background: var(--color-bg);
   overflow: hidden;
   display: block;
+}
+
+.model-progress__message {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Unknown total (sizes never arrived) → sweeping pulse instead of a fill %. */
+@media (prefers-reduced-motion: no-preference) {
+  .model-progress__fill--indeterminate {
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes sweep {
+  from {
+    width: 8%;
+  }
+  to {
+    width: 80%;
+  }
 }
 
 .model-progress__fill {
