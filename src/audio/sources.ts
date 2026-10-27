@@ -38,12 +38,18 @@ function classifyError(cause: unknown): SourceError {
   switch (name) {
     case 'NotAllowedError':
       return new SourceError('permission-denied', 'Audio access was denied.');
+    case 'AbortError':
+      // Dismissing/closing the permission prompt surfaces as AbortError.
+      return new SourceError('permission-denied', 'Audio access was cancelled — accept the browser prompt to start.');
     case 'NotFoundError':
       return new SourceError('no-device', 'No audio device was found.');
     case 'NotReadableError':
       return new SourceError('no-device', 'An audio device is busy in another app.');
     default:
-      return new SourceError('unknown', 'Could not start audio capture.');
+      // Carry the browser's own text into the UI — the generic fallback alone
+      // hides the actual cause (device sample-rate limits, iframe policies…).
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      return new SourceError('unknown', `Could not start audio capture: ${detail}`);
   }
 }
 

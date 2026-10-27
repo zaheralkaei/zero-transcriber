@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { acquireTabAudio, supportsTabCapture } from '../audio/sources';
+import { acquireTabAudio, acquireMicrophone, supportsTabCapture } from '../audio/sources';
 
 /** Track stub that records stop() and captures 'ended' listeners. */
 function fakeTrack(kind: 'audio' | 'video') {
@@ -42,6 +42,38 @@ function stubMediaDevices() {
 
 beforeEach(() => {
   stubMediaDevices();
+});
+
+describe('acquireMicrophone', () => {
+  it('maps AbortError (prompt dismissed) to a self-explaining message', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: vi.fn(async () => {
+          throw new DOMException('prompt dismissed', 'AbortError');
+        }),
+      },
+      configurable: true,
+    });
+    await expect(acquireMicrophone()).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: expect.stringContaining('cancelled'),
+    });
+  });
+
+  it('carries the browser detail in unknown errors', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: vi.fn(async () => {
+          throw new DOMException('weird driver error', 'UnknownDeviceException');
+        }),
+      },
+      configurable: true,
+    });
+    await expect(acquireMicrophone()).rejects.toMatchObject({
+      code: 'unknown',
+      message: expect.stringContaining('weird driver error'),
+    });
+  });
 });
 
 describe('supportsTabCapture', () => {
